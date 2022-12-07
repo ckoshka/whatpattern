@@ -28,37 +28,48 @@ export const FormatDetector = async () => {
 		addBytes: detector.add_bytes.bind(detector),
 		detect: (text: string) => {
 			try {
-                return JSON.parse(detector.detect(text)).reverse() as Summary[]
-            } catch {
-                return []
-            }
-        }
+				return JSON.parse(detector.detect(text)).reverse() as Summary[];
+			} catch {
+				return [];
+			}
+		},
 	};
 };
 
 export type LanguageDetectorOpts = {
 	all: boolean;
-	dataset: "wikipedia" | "udhr"
+	dataset: "wikipedia" | "udhr";
 };
 
 export const LanguageDetector = async (opts: LanguageDetectorOpts) => {
 	const detector = await FormatDetector();
 	const map = makeMap();
+	const languageToData = new Map<string, string>();
+
 	if (opts.all) {
 		if (opts.dataset === "udhr") {
 			for (const lang of langs) {
 				const u = new URL(`./languages_udhr/${lang}`, import.meta.url);
 				const data = await fetch(u).then((t) => t.text());
+				languageToData.set(data, lang.replace(".html", ""));
 				detector.addStr(data, lang.replace(".html", ""));
 			}
 		} else if (opts.dataset === "wikipedia") {
 			for (const lang of labels.slice(1)) {
-				const u = new URL(`./wikipedia/data/${lang}.html`, import.meta.url);
-				const data = await fetch(u).then((t) => t.text()).then(t => t.replace("\n", ""));
+				const u = new URL(
+					`./wikipedia/data/${lang}.html`,
+					import.meta.url,
+				);
+				const data = await fetch(u).then((t) => t.text()).then((t) =>
+					t.replace("\n", "")
+				);
+				languageToData.set(data, lang.replace(".html", ""));
 				detector.addStr(data, lang);
 			}
 		} else {
-			throw new Error("Unrecognised dataset: valid ones are: wikipedia | udhr")
+			throw new Error(
+				"Unrecognised dataset: valid ones are: wikipedia | udhr",
+			);
 		}
 	}
 	const detect = (text: string) =>
@@ -71,13 +82,25 @@ export const LanguageDetector = async (opts: LanguageDetectorOpts) => {
 	const self = {
 		...detector,
 		detect: (text: string) => {
-			const result = [...new Intl.Segmenter(undefined, {granularity: "sentence"}).segment(text.replace("\n", " "))]
-                .map(s => s.segment)
-                .reduce((prev, curr) => prev.slice(-1)[0] && prev.slice(-1)[0].length > 100 ? prev.concat([curr]) : [...prev.slice(0, -1), prev.slice(-1)[0] + curr], [] as string[])
-				.filter(l => l.length > 0)
+			const result = [
+				...new Intl.Segmenter(undefined, { granularity: "sentence" })
+					.segment(text.replace("\n", " ")),
+			]
+				.map((s) => s.segment)
+				.reduce(
+					(prev, curr) =>
+						prev.slice(-1)[0] && prev.slice(-1)[0].length > 100
+							? prev.concat([curr])
+							: [...prev.slice(0, -1), prev.slice(-1)[0] + curr],
+					[] as string[],
+				)
+				.filter((l) => l.length > 0)
 				.map(detect)
 				.reduce(
-					(prev, curr) => (curr.forEach((item) =>
+					(
+						prev,
+						curr,
+					) => (curr.forEach((item) =>
 						prev[item.code]
 							? prev[item.code].likelihood += item.likelihood
 							: (prev[item.code] = item)
@@ -88,15 +111,17 @@ export const LanguageDetector = async (opts: LanguageDetectorOpts) => {
 						{ languageName: string; likelihood: number }
 					>,
 				);
-            
-            const sorted = Object.entries(result).map(([code, item]) => ({code, ...item})).sort((a, b) => b.likelihood - a.likelihood);
+
+			const sorted = Object.entries(result).map(([code, item]) => ({
+				code,
+				...item,
+			})).sort((a, b) => b.likelihood - a.likelihood);
 			//if (sorted.slice(-1)[0] && sorted.slice(-1)[0].likelihood < 0) {
 			//	sorted.forEach(s => s.likelihood *= -1);
 			//	return sorted;
 			//}
 			// it's being divided by the highest one, which makes them negative sometimes
 			return sorted;
-                
 		},
 	};
 	return self;

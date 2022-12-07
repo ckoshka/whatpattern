@@ -7910,14 +7910,14 @@ zza	zza	zza		M	L	Zaza
 zzj				I	L	Zuojiang Zhuang`;
 
 export const makeMap = () => {
-    const map = new Map();
+	const map = new Map();
 
-    codes.split("\n").forEach(s => {
-        const parts = s.split("\t");
-        const name = parts.slice(-2)[0];
-        const code = parts[0];
-        map.set(code, name);
-    });
+	codes.split("\n").forEach((s) => {
+		const parts = s.split("\t");
+		const name = parts.slice(-2)[0];
+		const code = parts[0];
+		map.set(code, name);
+	});
 
-    return map;
-}
+	return map;
+};
